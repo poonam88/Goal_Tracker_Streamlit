@@ -1,3 +1,5 @@
+
 {
-  "reminder_time": "07:00"  // Default 7:00 AM
+  "reminder_time": "07:00",
+  "timezone": "Asia/Kolkata"
 }
