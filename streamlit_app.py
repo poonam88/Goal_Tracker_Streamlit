@@ -8,23 +8,23 @@ from crew_planner import plan_tasks
 from whatsapp_utils import send_whatsapp
 
 # --- Sidebar ---
-with st.sidebar:
-    st.header("⚙️ Settings")
+# inside st.sidebar
 
-    timezone_list = pytz.all_timezones
-    settings = load_settings()
-    selected_timezone = st.selectbox("🌍 Choose your timezone", timezone_list, 
-                                     index=timezone_list.index(settings.get("timezone", "UTC")))
+st.header("⚙️ Settings")
 
-    if selected_timezone != settings.get("timezone"):
-        settings["timezone"] = selected_timezone
-        save_settings(settings)
-        st.success(f"Timezone updated to {selected_timezone}")
+# Timezone
+timezone_list = pytz.all_timezones
+selected_timezone = st.selectbox("🌍 Choose your timezone", timezone_list,
+                                 index=timezone_list.index(settings.get("timezone", "UTC")))
+settings["timezone"] = selected_timezone
 
-    if "preview" not in st.session_state:
-        st.session_state["preview"] = False
+# Reminder Type (Daily or Weekly)
+reminder_type = st.radio("🔔 Reminder Type", ["daily", "weekly"],
+                         index=["daily", "weekly"].index(settings.get("reminder_type", "daily")))
+settings["reminder_type"] = reminder_type
 
-    st.checkbox("👁️ Show Tomorrow's Task Preview", key="preview")
+save_settings(settings)
+
 
 # --- Main UI ---
 st.title("🎯 Turn your big goals into daily tasks")
