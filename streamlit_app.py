@@ -1,5 +1,6 @@
 import streamlit as st
 from crew_planner import plan_tasks  # Your AI task planner
+from whatsapp_utils import send_whatsapp
 import os
 
 st.set_page_config(page_title="Goal Tracker AI", page_icon="🚀")
@@ -29,4 +30,15 @@ if 'tasks' in st.session_state:
     st.success(f"📌 Plan for: **{st.session_state['goal']}** in {st.session_state['days']} days")
     for task in st.session_state['tasks']:
         st.markdown(f"**Day {task['day']}**: {task['task']}")
+
+
+if 'tasks' in st.session_state:
+    today = st.session_state['tasks'][0]  # assuming Day 1 for simplicity
+    if st.button("📲 Send Today's Task on WhatsApp"):
+        msg = f"✅ Your Day {today['day']} Goal: {today['task']}"
+        sent = send_whatsapp(msg)
+        if sent:
+            st.success("WhatsApp reminder sent successfully! ✅")
+        else:
+            st.error("❌ Failed to send WhatsApp message.")
 
