@@ -1,4 +1,4 @@
-# .streamlit/schedule.toml
 [[scheduled]]
 function = "scheduled_task_sender.send_daily_task"
-cron = "0 7 * * *"  # Runs every day at 7 AM UTC
+cron = "0 7 * * *"  # 7 AM UTC daily
+
