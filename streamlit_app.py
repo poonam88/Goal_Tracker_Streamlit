@@ -2,6 +2,7 @@ import streamlit as st
 from crew_planner import plan_tasks  # Your AI task planner
 from whatsapp_utils import send_whatsapp
 from user_settings import load_settings, save_settings
+import pytz
 import os
 
 st.set_page_config(page_title="Goal Tracker AI", page_icon="🚀")
@@ -51,4 +52,16 @@ if time_input:
     settings["reminder_time"] = time_input.strftime("%H:%M")
     save_settings(settings)
     st.sidebar.success(f"Reminder time saved: {settings['reminder_time']}")
+
+
+time_input = st.sidebar.time_input("⏰ Reminder Time", value=None)
+timezone_list = pytz.all_timezones
+selected_tz = st.sidebar.selectbox("🌐 Timezone", options=timezone_list, index=timezone_list.index("Asia/Kolkata"))
+
+if time_input:
+    settings = load_settings()
+    settings["reminder_time"] = time_input.strftime("%H:%M")
+    settings["timezone"] = selected_tz
+    save_settings(settings)
+    st.sidebar.success(f"Saved: {settings['reminder_time']} in {settings['timezone']}")
 
