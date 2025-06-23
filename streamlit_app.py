@@ -28,4 +28,5 @@ if st.button("🚀 Generate Plan"):
             st.success("✅ Goal plan generated and saved!")
             st.markdown("### 📋 Your Daily Tasks")
             for i, task in enumerate(tasks, start=1):
-                st.markdown(f"**Day {i}:** {task}")
+                for task in tasks:
+                    st.write(task)
