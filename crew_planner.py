@@ -2,16 +2,14 @@
 
 import os
 from openai import OpenAI
+import json
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-
 def plan_tasks(goal, days):
-    import json
-
     prompt = f"""
     Break down the goal "{goal}" into {days} daily learning tasks.
-    Format the output as JSON like this:
+    Format the output strictly as JSON:
     [
       {{ "day": 1, "task": "..." }},
       {{ "day": 2, "task": "..." }}
@@ -24,14 +22,13 @@ def plan_tasks(goal, days):
         temperature=0.6,
     )
 
-    reply = response.choices[0].message.content
+    reply = response.choices[0].message.content.strip()
 
     try:
-        structured_tasks = json.loads(reply)
-        # ✅ Convert to readable text
-        task_text = [f"Day {task['day']}: {task['task']}" for task in structured_tasks]
-        return task_text
+        tasks = json.loads(reply)
+        return tasks
     except Exception as e:
-        print("⚠️ JSON Parse Error:", e)
-        return ["Day 1: Sorry, task breakdown failed!"]
+        print("❌ JSON parse error:", e)
+        return [{"day": 1, "task": "Sorry, task breakdown failed!"}]
+
 
