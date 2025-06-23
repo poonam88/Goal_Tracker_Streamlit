@@ -1,3 +1,4 @@
+### streamlit_app.py
 import streamlit as st
 import pytz
 from datetime import datetime
@@ -26,7 +27,7 @@ with st.sidebar:
     st.checkbox("👁️ Show Tomorrow's Task Preview", key="preview")
 
 # --- Main UI ---
-st.title("🎯 Turn your big goals into daily tasks with AI coaching")
+st.title("🎯 Turn your big goals into daily tasks")
 
 goal = st.text_input("🎯 Enter your goal (e.g., Learn Data Science):")
 days = st.slider("📅 How many days do you want to achieve it?", 1, 30, 5)
@@ -74,6 +75,85 @@ if st.button("📤 Send Today's Task on WhatsApp"):
         st.success("✅ WhatsApp reminder sent!")
     except Exception as e:
         st.error(f"❌ Failed to send: {e}")
+
+
+### crew_planner.py
+import os
+import json
+from openai import OpenAI
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def plan_tasks(goal, days):
+    prompt = f"""
+    Break down the goal \"{goal}\" into {days} daily learning tasks.
+    Format the output as JSON like this:
+    [
+      {{ "day": 1, "task": "..." }},
+      {{ "day": 2, "task": "..." }}
+    ]
+    """
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.6,
+    )
+    reply = response.choices[0].message.content
+    try:
+        return json.loads(reply)
+    except:
+        return [{"day": 1, "task": "Sorry, task breakdown failed!"}]
+
+
+### whatsapp_utils.py
+import os
+from twilio.rest import Client
+
+def send_whatsapp(message):
+    account_sid = os.getenv("TWILIO_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    from_whatsapp = "whatsapp:+14155238886"
+    to_whatsapp = os.getenv("USER_WHATSAPP")
+
+    client = Client(account_sid, auth_token)
+    client.messages.create(
+        body=message,
+        from_=from_whatsapp,
+        to=to_whatsapp
+    )
+
+
+### goal_data_loader.py
+import json
+
+def save_goal_data(data):
+    with open("goal_data.json", "w") as f:
+        json.dump(data, f, indent=2)
+
+def load_goal_data():
+    try:
+        with open("goal_data.json", "r") as f:
+            return json.load(f)
+    except:
+        return {}
+
+
+### user_settings.py
+import json
+
+SETTINGS_FILE = "user_settings.json"
+
+def load_settings():
+    try:
+        with open(SETTINGS_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {"timezone": "UTC"}
+
+def save_settings(data):
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
 
 
 
