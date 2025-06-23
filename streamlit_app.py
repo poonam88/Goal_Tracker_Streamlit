@@ -65,3 +65,33 @@ if time_input:
     save_settings(settings)
     st.sidebar.success(f"Saved: {settings['reminder_time']} in {settings['timezone']}")
 
+Load existing goal/task data
+data = load_goal_data()
+settings = load_settings()
+
+# Show goal and tasks
+st.title("🎯 Goal Tracker AI")
+if "goal" in data and "tasks" in data:
+    st.success(f"🎯 Your goal: **{data['goal']}**")
+
+    st.subheader("✅ Today's Task")
+    # Timezone logic
+    timezone = settings.get("timezone", "UTC")
+    user_now = datetime.now(pytz.timezone(timezone))
+    today_day = user_now.day
+
+    # Find today's task
+    todays_task = next((t for t in data["tasks"] if t["day"] == today_day), None)
+    if todays_task:
+        st.write(f"📅 Day {todays_task['day']}: {todays_task['task']}")
+    else:
+        st.warning("No task found for today!")
+
+    # 👉 Add this block for "Next Task Preview" right after today's task
+    st.subheader("🔮 Next Task Preview")
+    next_task = next((t for t in data["tasks"] if t["day"] == today_day + 1), None)
+    if next_task:
+        st.info(f"📆 Day {next_task['day']}: {next_task['task']}")
+    else:
+        st.info("🎉 All tasks completed or no further tasks available.")
+
