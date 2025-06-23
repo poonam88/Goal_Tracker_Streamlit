@@ -1,36 +1,31 @@
-from crewai import Crew, Agent, Task
-from langchain_community.tools import DuckDuckGoSearchRun
-from langchain_openai import ChatOpenAI
+# crew_planner.py
 
-llm = ChatOpenAI(model="gpt-4", temperature=0.5)
+import os
+from openai import OpenAI
 
-def plan_tasks(goal: str, days: int):
-    search_tool = DuckDuckGoSearchRun()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    planner = Agent(
-        role="Goal Planner",
-        goal="Break big goals into smaller, daily tasks",
-        backstory="You're an expert at planning step-by-step learning journeys.",
-        tools=[search_tool],
-        llm=llm,
-        allow_delegation=False
+def plan_tasks(goal, days):
+    prompt = f"""
+    Break down the goal "{goal}" into {days} daily learning tasks.
+    Format the output as JSON like this:
+    [
+      {{ "day": 1, "task": "..." }},
+      {{ "day": 2, "task": "..." }}
+    ]
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.6,
     )
 
-    task = Task(
-        description=f"Create a {days}-day plan for this goal: {goal}",
-        expected_output="Return a JSON array like: ['Day 1: ...', 'Day 2: ...', ..., 'Day N: ...']",
-        agent=planner
-    )
-
-    crew = Crew(agents=[planner], tasks=[task], verbose=True)
-    result = crew.run()
-
+    # Parse as JSON from assistant message
+    import json
+    reply = response.choices[0].message.content
     try:
-        # Try to extract list from string
-        tasks = eval(result.strip())
-        if isinstance(tasks, list):
-            return tasks
-        else:
-            return [f"Day {i+1}: {line}" for i, line in enumerate(result.split('\n'))]
+        return json.loads(reply)
     except:
-        return [f"Day {i+1}: {line}" for i, line in enumerate(result.split('\n'))]
+        return [{"day": 1, "task": "Sorry, task breakdown failed!"}]
+
