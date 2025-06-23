@@ -5,6 +5,7 @@ from openai import OpenAI
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+
 def plan_tasks(goal, days):
     prompt = f"""
     Break down the goal "{goal}" into {days} daily learning tasks.
