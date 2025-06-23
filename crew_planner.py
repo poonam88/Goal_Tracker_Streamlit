@@ -7,6 +7,8 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def plan_tasks(goal, days):
+    import json
+
     prompt = f"""
     Break down the goal "{goal}" into {days} daily learning tasks.
     Format the output as JSON like this:
@@ -22,11 +24,14 @@ def plan_tasks(goal, days):
         temperature=0.6,
     )
 
-    # Parse as JSON from assistant message
-    import json
     reply = response.choices[0].message.content
+
     try:
-        return json.loads(reply)
-    except:
-        return [{"day": 1, "task": "Sorry, task breakdown failed!"}]
+        structured_tasks = json.loads(reply)
+        # ✅ Convert to readable text
+        task_text = [f"Day {task['day']}: {task['task']}" for task in structured_tasks]
+        return task_text
+    except Exception as e:
+        print("⚠️ JSON Parse Error:", e)
+        return ["Day 1: Sorry, task breakdown failed!"]
 
