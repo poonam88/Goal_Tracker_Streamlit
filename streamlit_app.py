@@ -80,4 +80,26 @@ if st.session_state.get("preview"):
     else:
         st.warning("🎉 No tasks remaining or tomorrow's task not found.")
 
+# Sidebar UI
+with st.sidebar:
+    st.header("⚙️ Settings")
+
+    # Timezone dropdown
+    timezone = st.selectbox(
+        "🌍 Choose Your Timezone",
+        pytz.all_timezones,
+        index=pytz.all_timezones.index("Asia/Kolkata")
+    )
+    save_settings({"timezone": timezone})  # Save selection to JSON
+
+    # Tomorrow preview toggle
+    if "preview" not in st.session_state:
+        st.session_state["preview"] = False
+    st.session_state["preview"] = st.checkbox("👁️ Show Tomorrow's Task Preview")
+
+    st.divider()
+
+    
+
+
 
