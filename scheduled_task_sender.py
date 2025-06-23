@@ -1,4 +1,5 @@
 # scheduled_task_sender.py
+
 import pytz
 from datetime import datetime
 from goal_data_loader import load_goal_data
@@ -11,14 +12,24 @@ def send_daily_task():
     tz = pytz.timezone(settings.get("timezone", "UTC"))
     today = datetime.now(tz).day
 
-    today_task = next((t for t in data.get("tasks", []) if t["day"] == today), None)
-    if today_task:
-        msg = f"📅 Day {today_task['day']} Task: {today_task['task']}"
-    else:
-        msg = "✅ No task for today or you've completed your plan!"
+    reminder_type = settings.get("reminder_type", "daily")
+
+    if reminder_type == "daily":
+        task = next((t for t in data.get("tasks", []) if t["day"] == today), None)
+        if task:
+            msg = f"📅 Day {task['day']} Task: {task['task']}\n💡 Stay motivated! You've got this! 💪"
+        else:
+            msg = "✅ All tasks completed or no task for today!"
+    else:  # weekly
+        this_week = [t for t in data.get("tasks", []) if today <= t["day"] < today + 7]
+        if this_week:
+            msg = "📊 **Your Weekly Plan:**\n" + "\n".join(
+                [f"• Day {t['day']}: {t['task']}" for t in this_week])
+        else:
+            msg = "🎉 No upcoming tasks this week. Enjoy your free time!"
 
     try:
         send_whatsapp(msg)
-        print("✅ WhatsApp sent automatically")
+        print("✅ WhatsApp reminder sent!")
     except Exception as e:
-        print(f"❌ Failed: {e}")
+        print(f"❌ Failed to send: {e}")
