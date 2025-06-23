@@ -1,32 +1,32 @@
 import streamlit as st
-from crew_planner import plan_tasks
-import json
+from crew_planner import plan_tasks  # Your AI task planner
 import os
 
-# Set up the Streamlit app
-st.set_page_config(page_title="Goal Tracker AI", layout="centered")
-st.title("🎯 Goal Tracker AI")
-st.markdown("Break your big goals into daily tasks using CrewAI 💡")
+st.set_page_config(page_title="Goal Tracker AI", page_icon="🚀")
 
-# Goal Input Section
-goal = st.text_input("📌 Enter your goal:", placeholder="e.g., Learn Data Science")
-days = st.number_input("🗓️ Days to complete the goal:", min_value=1, max_value=30, value=5)
+st.title("🚀 Goal Tracker AI")
+st.subheader("Turn your big goals into daily tasks with AI coaching")
 
-# Action Button
-if st.button("🚀 Generate Plan"):
-    if not goal:
-        st.warning("Please enter a goal to proceed.")
+# Input section
+goal = st.text_input("🎯 Enter your goal (e.g., Learn Data Science):")
+days = st.number_input("📅 How many days do you want to achieve it?", min_value=1, max_value=30, value=5)
+
+if st.button("Create Plan"):
+    if not goal.strip():
+        st.warning("Please enter a goal.")
     else:
-        with st.spinner("Thinking..."):
-            tasks = plan_tasks(goal, days)
+        with st.spinner("Planning your daily tasks..."):
+            task_list = plan_tasks(goal, days)
+            if isinstance(task_list, list):
+                st.session_state['tasks'] = task_list
+                st.session_state['goal'] = goal
+                st.session_state['days'] = days
+            else:
+                st.error("❌ Task generation failed. Please try again.")
 
-            # Save to JSON file
-            data = {"goal": goal, "days": days, "tasks": tasks}
-            with open("goal_data.json", "w") as f:
-                json.dump(data, f, indent=2)
+# Display results
+if 'tasks' in st.session_state:
+    st.success(f"📌 Plan for: **{st.session_state['goal']}** in {st.session_state['days']} days")
+    for task in st.session_state['tasks']:
+        st.markdown(f"**Day {task['day']}**: {task['task']}")
 
-            st.success("✅ Goal plan generated and saved!")
-            st.markdown("### 📋 Your Daily Tasks")
-            for i, task in enumerate(tasks, start=1):
-                for task in tasks:
-                    st.write(task)
