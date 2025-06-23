@@ -4,15 +4,16 @@ from whatsapp_utils import send_whatsapp
 from datetime import datetime
 
 settings = load_settings()
-cron_expr = get_cron_expression_from_time(settings["reminder_time"])
+cron_expr = get_utc_cron_from_local(settings["reminder_time"], settings["timezone"])
 
 @st.experimental_fragment(schedule=cron_expr)
 def daily_whatsapp_reminder():
     data = load_goal_data()
-    today = datetime.now().day
+    today = datetime.now(pytz.timezone(settings["timezone"])).day
     todays_task = next((t for t in data["tasks"] if t["day"] == today), None)
 
     if todays_task:
         message = f"📌 Day {todays_task['day']} Task: {todays_task['task']}"
         send_whatsapp(message)
         st.write(f"✅ WhatsApp sent: {message}")
+
