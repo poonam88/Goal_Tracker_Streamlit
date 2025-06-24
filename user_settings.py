@@ -1,18 +1,23 @@
-# user_settings.py
-
 import json
+import os
 
-SETTINGS_FILE = "user_settings.json"
+SETTINGS_DIR = "user_settings"
 
-def load_settings():
+if not os.path.exists(SETTINGS_DIR):
+    os.makedirs(SETTINGS_DIR)
+
+def get_settings_file(user_id):
+    return os.path.join(SETTINGS_DIR, f"{user_id}.json")
+
+def load_settings(user_id):
     try:
-        with open(SETTINGS_FILE, "r") as f:
+        with open(get_settings_file(user_id), "r") as f:
             return json.load(f)
     except:
-        return {"timezone": "UTC", "reminder_type": "daily"}
+        return {"timezone": "UTC"}
 
-def save_settings(data):
-    with open(SETTINGS_FILE, "w") as f:
+def save_settings(user_id, data):
+    with open(get_settings_file(user_id), "w") as f:
         json.dump(data, f, indent=2)
 
 
