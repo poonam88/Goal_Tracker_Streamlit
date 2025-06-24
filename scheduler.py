@@ -1,41 +1,61 @@
-import pytz
 import os
-import random
+import pytz
+import schedule
+import time
 from datetime import datetime
 from goal_data_loader import load_goal_data
 from user_settings import load_settings
 from whatsapp_utils import send_whatsapp
+import random
 
-MOTIVATION_QUOTES = [
-    "You're one step closer to your goal. Keep going!",
-    "Progress, not perfection.",
-    "Small steps every day lead to big changes.",
-    "Your future self will thank you.",
-    "Success is built on consistency, not intensity.",
-    "Every day is a fresh chance to move ahead!"
+# Optional motivational quotes list
+quotes = [
+    "🌟 Keep going, you're doing great!",
+    "🚀 One step at a time leads to big goals!",
+    "🔥 Stay focused and never give up!",
+    "💪 You’ve got this! Today is your day!",
+    "🌱 Growth happens daily — keep pushing!"
 ]
 
-def send_daily_whatsapp_reminder():
+def send_daily_reminder():
+    settings = load_settings()
+    data = load_goal_data()
+
+    if not data or "tasks" not in data:
+        print("No tasks found to send.")
+        return
+
+    timezone = settings.get("timezone", "UTC")
+    tz = pytz.timezone(timezone)
+    today = datetime.now(tz).day
+
+    today_task = next((t for t in data["tasks"] if t["day"] == today), None)
+
+    if today_task:
+        quote = random.choice(quotes)
+        msg = f"📅 Day {today_task['day']} Task: {today_task['task']}\n\n💡 Motivation: {quote}"
+    else:
+        msg = "✅ You've completed all tasks or no task found for today!"
+
     try:
-        settings = load_settings()
-        tz = pytz.timezone(settings.get("timezone", "UTC"))
-        today = datetime.now(tz).day
-
-        data = load_goal_data()
-        today_task = next((t for t in data.get("tasks", []) if t["day"] == today), None)
-
-        if today_task:
-            quote = random.choice(MOTIVATION_QUOTES)
-            msg = f"📅 Day {today_task['day']} Task:\n{today_task['task']}\n\n💡 Motivation: {quote}"
-        else:
-            msg = "✅ No task for today or you've completed your plan!"
-
         send_whatsapp(msg)
-        print("✅ WhatsApp reminder sent successfully!")
-
+        print("✅ WhatsApp reminder sent!")
     except Exception as e:
         print(f"❌ Failed to send WhatsApp message: {e}")
 
+def schedule_daily_reminder():
+    settings = load_settings()
+    reminder_time = settings.get("reminder_time", "08:00")  # default 8 AM
+    hour, minute = map(int, reminder_time.split(":"))
+
+    # Schedule it for the system's local time (assumes the server is in UTC or timezone-aware)
+    schedule.every().day.at(f"{hour:02d}:{minute:02d}").do(send_daily_reminder)
+    print(f"📆 Scheduled reminder daily at {reminder_time} (local server time)")
+
+    while True:
+        schedule.run_pending()
+        time.sleep(30)
 
 if __name__ == "__main__":
-    send_daily_whatsapp_reminder()
+    schedule_daily_reminder()
+
