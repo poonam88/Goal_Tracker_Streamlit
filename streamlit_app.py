@@ -1,4 +1,3 @@
-### streamlit_app.py
 import streamlit as st
 import pytz
 from datetime import datetime
@@ -15,24 +14,19 @@ with st.sidebar:
     settings = load_settings()
     selected_timezone = st.selectbox("🌍 Choose your timezone", timezone_list, 
                                      index=timezone_list.index(settings.get("timezone", "UTC")))
-
     if selected_timezone != settings.get("timezone"):
         settings["timezone"] = selected_timezone
         save_settings(settings)
         st.success(f"Timezone updated to {selected_timezone}")
 
-    # Reminder Type (Daily or Weekly)
-    reminder_type = st.radio("🔔 Reminder Type", ["daily", "weekly"],
-                             index=["daily", "weekly"].index(settings.get("reminder_type", "daily")))
-    settings["reminder_type"] = reminder_type
+    # WhatsApp preference
+    send_mode = st.radio("📲 WhatsApp Reminder Mode", ["Daily Motivation", "Weekly Summary"])
+    settings["send_mode"] = send_mode
     save_settings(settings)
-
-    if "preview" not in st.session_state:
-        st.session_state["preview"] = False
 
     st.checkbox("👁️ Show Tomorrow's Task Preview", key="preview")
 
-# --- Main UI ---
+# --- Main App ---
 st.title("🎯 Turn your big goals into daily tasks")
 
 goal = st.text_input("🎯 Enter your goal (e.g., Learn Data Science):")
@@ -44,30 +38,31 @@ if st.button("🚀 Create Plan"):
         tasks = plan_tasks(goal, days)
         save_goal_data({"goal": goal, "days": days, "tasks": tasks})
         st.success(f"📌 Plan for: **{goal}** in {days} days")
+        for task in tasks:
+            st.markdown(f"**Day {task['day']}:** {task['task']}")
 
-# --- Display Plan with Checkboxes ---
+# --- Load Data ---
 data = load_goal_data()
+settings = load_settings()
 tz = pytz.timezone(settings.get("timezone", "UTC"))
 today = datetime.now(tz).day
 
+# --- Display Task Checklist ---
 if data:
-    st.markdown("## 📅 Plan")
-    checked_tasks = st.session_state.get("checked_tasks", [])
+    st.markdown("## ✅ Task Checklist")
+    if "checked_tasks" not in st.session_state:
+        st.session_state.checked_tasks = []
 
-    for task in data["tasks"]:
-        key = f"day_{task['day']}"
-        is_checked = st.checkbox(f"**Day {task['day']}:** {task['task']}", key=key)
-        if is_checked and task not in checked_tasks:
-            checked_tasks.append(task)
+    for task in data.get("tasks", []):
+        label = f"Day {task['day']}: {task['task']}"
+        key = f"task_{task['day']}"
+        checked = st.checkbox(label, key=key)
+        if checked and task["day"] not in st.session_state.checked_tasks:
+            st.session_state.checked_tasks.append(task["day"])
+        elif not checked and task["day"] in st.session_state.checked_tasks:
+            st.session_state.checked_tasks.remove(task["day"])
 
-    st.session_state["checked_tasks"] = checked_tasks
-
-    if checked_tasks:
-        st.markdown("### ✅ Tasks marked for today:")
-        for t in checked_tasks:
-            st.markdown(f"- **Day {t['day']}**: {t['task']}")
-
-# --- Today's Task ---
+# --- Show Today's Task ---
 if data:
     st.markdown("## 📅 Today's Task")
     today_task = next((t for t in data["tasks"] if t["day"] == today), None)
@@ -77,7 +72,7 @@ if data:
         st.info("🎉 No task today or you've completed the goal!")
 
 # --- Tomorrow's Preview ---
-if st.session_state["preview"]:
+if st.session_state.get("preview", False):
     st.markdown("## 🔮 Tomorrow's Task Preview")
     tomorrow_task = next((t for t in data["tasks"] if t["day"] == today + 1), None)
     if tomorrow_task:
@@ -85,7 +80,7 @@ if st.session_state["preview"]:
     else:
         st.warning("🥳 No task scheduled for tomorrow!")
 
-# --- WhatsApp Reminder ---
+# --- WhatsApp Reminder Button ---
 st.divider()
 if st.button("📤 Send Today's Task on WhatsApp"):
     if today_task:
@@ -98,15 +93,24 @@ if st.button("📤 Send Today's Task on WhatsApp"):
     except Exception as e:
         st.error(f"❌ Failed to send: {e}")
 
-# --- Weekly Summary Preview (Optional Test Button) ---
-if st.button("🧪 Preview Weekly Summary"):
-    upcoming_week = [t for t in data["tasks"] if today <= t["day"] < today + 7]
-    if upcoming_week:
-        st.markdown("### 📊 This Week's Plan:")
-        for t in upcoming_week:
-            st.markdown(f"- **Day {t['day']}**: {t['task']}")
-    else:
-        st.info("🎉 No upcoming tasks in the next 7 days.")
+# --- Scheduled for Today Section ---
+if st.session_state.get("checked_tasks"):
+    st.markdown("## 📋 Tasks Scheduled for Today")
+    for day in st.session_state.checked_tasks:
+        task = next((t for t in data["tasks"] if t["day"] == day), None)
+        if task:
+            st.info(f"✔️ Day {task['day']}: {task['task']}")
+
+# --- Weekly Summary Preview ---
+if st.button("📆 Preview Weekly Summary"):
+    st.markdown("## 🗓️ Your Weekly Summary")
+    week_tasks = [t for t in data.get("tasks", []) if today <= t["day"] < today + 7]
+    for task in week_tasks:
+        st.markdown(f"- Day {task['day']}: {task['task']}")
+    if not week_tasks:
+        st.info("🎉 No upcoming tasks for the week!")
+
+
 
 
 
