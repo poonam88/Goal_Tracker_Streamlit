@@ -8,23 +8,29 @@ from crew_planner import plan_tasks
 from whatsapp_utils import send_whatsapp
 
 # --- Sidebar ---
-# inside st.sidebar
+with st.sidebar:
+    st.header("⚙️ Settings")
 
-st.header("⚙️ Settings")
+    timezone_list = pytz.all_timezones
+    settings = load_settings()
+    selected_timezone = st.selectbox("🌍 Choose your timezone", timezone_list, 
+                                     index=timezone_list.index(settings.get("timezone", "UTC")))
 
-# Timezone
-timezone_list = pytz.all_timezones
-selected_timezone = st.selectbox("🌍 Choose your timezone", timezone_list,
-                                 index=timezone_list.index(settings.get("timezone", "UTC")))
-settings["timezone"] = selected_timezone
+    if selected_timezone != settings.get("timezone"):
+        settings["timezone"] = selected_timezone
+        save_settings(settings)
+        st.success(f"Timezone updated to {selected_timezone}")
 
-# Reminder Type (Daily or Weekly)
-reminder_type = st.radio("🔔 Reminder Type", ["daily", "weekly"],
-                         index=["daily", "weekly"].index(settings.get("reminder_type", "daily")))
-settings["reminder_type"] = reminder_type
+    # Reminder Type (Daily or Weekly)
+    reminder_type = st.radio("🔔 Reminder Type", ["daily", "weekly"],
+                             index=["daily", "weekly"].index(settings.get("reminder_type", "daily")))
+    settings["reminder_type"] = reminder_type
+    save_settings(settings)
 
-save_settings(settings)
+    if "preview" not in st.session_state:
+        st.session_state["preview"] = False
 
+    st.checkbox("👁️ Show Tomorrow's Task Preview", key="preview")
 
 # --- Main UI ---
 st.title("🎯 Turn your big goals into daily tasks")
@@ -38,14 +44,30 @@ if st.button("🚀 Create Plan"):
         tasks = plan_tasks(goal, days)
         save_goal_data({"goal": goal, "days": days, "tasks": tasks})
         st.success(f"📌 Plan for: **{goal}** in {days} days")
-        for task in tasks:
-            st.markdown(f"**Day {task['day']}:** {task['task']}")
 
-# --- Today's Task ---
+# --- Display Plan with Checkboxes ---
 data = load_goal_data()
 tz = pytz.timezone(settings.get("timezone", "UTC"))
 today = datetime.now(tz).day
 
+if data:
+    st.markdown("## 📅 Plan")
+    checked_tasks = st.session_state.get("checked_tasks", [])
+
+    for task in data["tasks"]:
+        key = f"day_{task['day']}"
+        is_checked = st.checkbox(f"**Day {task['day']}:** {task['task']}", key=key)
+        if is_checked and task not in checked_tasks:
+            checked_tasks.append(task)
+
+    st.session_state["checked_tasks"] = checked_tasks
+
+    if checked_tasks:
+        st.markdown("### ✅ Tasks marked for today:")
+        for t in checked_tasks:
+            st.markdown(f"- **Day {t['day']}**: {t['task']}")
+
+# --- Today's Task ---
 if data:
     st.markdown("## 📅 Today's Task")
     today_task = next((t for t in data["tasks"] if t["day"] == today), None)
@@ -76,83 +98,16 @@ if st.button("📤 Send Today's Task on WhatsApp"):
     except Exception as e:
         st.error(f"❌ Failed to send: {e}")
 
+# --- Weekly Summary Preview (Optional Test Button) ---
+if st.button("🧪 Preview Weekly Summary"):
+    upcoming_week = [t for t in data["tasks"] if today <= t["day"] < today + 7]
+    if upcoming_week:
+        st.markdown("### 📊 This Week's Plan:")
+        for t in upcoming_week:
+            st.markdown(f"- **Day {t['day']}**: {t['task']}")
+    else:
+        st.info("🎉 No upcoming tasks in the next 7 days.")
 
-### crew_planner.py
-import os
-import json
-from openai import OpenAI
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-def plan_tasks(goal, days):
-    prompt = f"""
-    Break down the goal \"{goal}\" into {days} daily learning tasks.
-    Format the output as JSON like this:
-    [
-      {{ "day": 1, "task": "..." }},
-      {{ "day": 2, "task": "..." }}
-    ]
-    """
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.6,
-    )
-    reply = response.choices[0].message.content
-    try:
-        return json.loads(reply)
-    except:
-        return [{"day": 1, "task": "Sorry, task breakdown failed!"}]
-
-
-### whatsapp_utils.py
-import os
-from twilio.rest import Client
-
-def send_whatsapp(message):
-    account_sid = os.getenv("TWILIO_SID")
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-    from_whatsapp = "whatsapp:+14155238886"
-    to_whatsapp = os.getenv("USER_WHATSAPP")
-
-    client = Client(account_sid, auth_token)
-    client.messages.create(
-        body=message,
-        from_=from_whatsapp,
-        to=to_whatsapp
-    )
-
-
-### goal_data_loader.py
-import json
-
-def save_goal_data(data):
-    with open("goal_data.json", "w") as f:
-        json.dump(data, f, indent=2)
-
-def load_goal_data():
-    try:
-        with open("goal_data.json", "r") as f:
-            return json.load(f)
-    except:
-        return {}
-
-
-### user_settings.py
-import json
-
-SETTINGS_FILE = "user_settings.json"
-
-def load_settings():
-    try:
-        with open(SETTINGS_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return {"timezone": "UTC"}
-
-def save_settings(data):
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(data, f, indent=2)
 
 
 
