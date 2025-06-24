@@ -6,6 +6,7 @@ from user_settings import load_settings, save_settings
 from goal_data_loader import load_all_users_data, save_user_data
 from crew_planner import plan_tasks
 from whatsapp_utils import send_whatsapp
+from user_settings import load_settings, save_settings, load_all_settings
 import uuid
 
 # --- Identify User ---
