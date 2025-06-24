@@ -1,10 +1,21 @@
 import streamlit as st
 import pytz
+import random
 from datetime import datetime
 from user_settings import load_settings, save_settings
 from goal_data_loader import load_goal_data, save_goal_data
 from crew_planner import plan_tasks
 from whatsapp_utils import send_whatsapp
+
+# --- Motivational Quotes ---
+MOTIVATION_QUOTES = [
+    "You're one step closer to your goal. Keep going!",
+    "Progress, not perfection.",
+    "Small steps every day lead to big changes.",
+    "Your future self will thank you.",
+    "Success is built on consistency, not intensity.",
+    "Every day is a fresh chance to move ahead!"
+]
 
 # --- Sidebar ---
 with st.sidebar:
@@ -24,8 +35,6 @@ with st.sidebar:
     settings["send_mode"] = send_mode
     save_settings(settings)
 
-    st.checkbox("👁️ Show Tomorrow's Task Preview", key="preview")
-
 # --- Main App ---
 st.title("🎯 Turn your big goals into daily tasks")
 
@@ -41,13 +50,12 @@ if st.button("🚀 Create Plan"):
         for task in tasks:
             st.markdown(f"**Day {task['day']}:** {task['task']}")
 
-# --- Load Data ---
+# --- Load & Display Task Checklist ---
 data = load_goal_data()
 settings = load_settings()
 tz = pytz.timezone(settings.get("timezone", "UTC"))
 today = datetime.now(tz).day
 
-# --- Display Task Checklist ---
 if data:
     st.markdown("## ✅ Task Checklist")
     if "checked_tasks" not in st.session_state:
@@ -62,53 +70,27 @@ if data:
         elif not checked and task["day"] in st.session_state.checked_tasks:
             st.session_state.checked_tasks.remove(task["day"])
 
-# --- Show Today's Task ---
-if data:
-    st.markdown("## 📅 Today's Task")
-    today_task = next((t for t in data["tasks"] if t["day"] == today), None)
-    if today_task:
-        st.success(f"**Day {today_task['day']}:** {today_task['task']}")
-    else:
-        st.info("🎉 No task today or you've completed the goal!")
+    if st.session_state.checked_tasks:
+        st.markdown("## 📋 Tasks Scheduled for Today")
+        for day in st.session_state.checked_tasks:
+            task = next((t for t in data["tasks"] if t["day"] == day), None)
+            if task:
+                st.info(f"✔️ Day {task['day']}: {task['task']}")
 
-# --- Tomorrow's Preview ---
-if st.session_state.get("preview", False):
-    st.markdown("## 🔮 Tomorrow's Task Preview")
-    tomorrow_task = next((t for t in data["tasks"] if t["day"] == today + 1), None)
-    if tomorrow_task:
-        st.info(f"📅 Day {tomorrow_task['day']}: {tomorrow_task['task']}")
-    else:
-        st.warning("🥳 No task scheduled for tomorrow!")
-
-# --- WhatsApp Reminder Button ---
-st.divider()
-if st.button("📤 Send Today's Task on WhatsApp"):
+# --- Send WhatsApp Reminder Automatically (Optional Manual Trigger for testing)
+if st.button("📤 Test WhatsApp Reminder"):
+    today_task = next((t for t in data.get("tasks", []) if t["day"] == today), None)
     if today_task:
-        msg = f"📅 Day {today_task['day']} Task: {today_task['task']}"
+        quote = random.choice(MOTIVATION_QUOTES)
+        msg = f"📅 Day {today_task['day']} Task:\n{today_task['task']}\n\n💡 Motivation: {quote}"
     else:
         msg = "✅ No task for today or you've completed your plan!"
+
     try:
         send_whatsapp(msg)
         st.success("✅ WhatsApp reminder sent!")
     except Exception as e:
         st.error(f"❌ Failed to send: {e}")
-
-# --- Scheduled for Today Section ---
-if st.session_state.get("checked_tasks"):
-    st.markdown("## 📋 Tasks Scheduled for Today")
-    for day in st.session_state.checked_tasks:
-        task = next((t for t in data["tasks"] if t["day"] == day), None)
-        if task:
-            st.info(f"✔️ Day {task['day']}: {task['task']}")
-
-# --- Weekly Summary Preview ---
-if st.button("📆 Preview Weekly Summary"):
-    st.markdown("## 🗓️ Your Weekly Summary")
-    week_tasks = [t for t in data.get("tasks", []) if today <= t["day"] < today + 7]
-    for task in week_tasks:
-        st.markdown(f"- Day {task['day']}: {task['task']}")
-    if not week_tasks:
-        st.info("🎉 No upcoming tasks for the week!")
 
 
 
