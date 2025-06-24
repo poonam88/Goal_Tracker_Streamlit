@@ -23,17 +23,16 @@ with st.sidebar:
 
     timezone_list = pytz.all_timezones
     settings = load_settings()
-    selected_timezone = st.selectbox("🌍 Choose your timezone", timezone_list, 
-                                     index=timezone_list.index(settings.get("timezone", "UTC")))
+    selected_timezone = st.selectbox(
+        "🌍 Choose your timezone",
+        timezone_list,
+        index=timezone_list.index(settings.get("timezone", "UTC"))
+    )
+
     if selected_timezone != settings.get("timezone"):
         settings["timezone"] = selected_timezone
         save_settings(settings)
         st.success(f"Timezone updated to {selected_timezone}")
-
-    # WhatsApp preference
-    send_mode = st.radio("📲 WhatsApp Reminder Mode", ["Daily Motivation", "Weekly Summary"])
-    settings["send_mode"] = send_mode
-    save_settings(settings)
 
 # --- Main App ---
 st.title("🎯 Turn your big goals into daily tasks")
@@ -77,7 +76,8 @@ if data:
             if task:
                 st.info(f"✔️ Day {task['day']}: {task['task']}")
 
-# --- Send WhatsApp Reminder Automatically (Optional Manual Trigger for testing)
+# --- Manual WhatsApp Reminder ---
+st.divider()
 if st.button("📤 Test WhatsApp Reminder"):
     today_task = next((t for t in data.get("tasks", []) if t["day"] == today), None)
     if today_task:
@@ -91,7 +91,6 @@ if st.button("📤 Test WhatsApp Reminder"):
         st.success("✅ WhatsApp reminder sent!")
     except Exception as e:
         st.error(f"❌ Failed to send: {e}")
-
 
 
 
