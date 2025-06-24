@@ -1,179 +1,117 @@
 ### streamlit_app.py
 import streamlit as st
 import pytz
-import os
-import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from user_settings import load_settings, save_settings
-from goal_data_loader import load_goal_data, save_goal_data
+from goal_data_loader import load_all_users_data, save_user_data
 from crew_planner import plan_tasks
-from whatsapp_utils import send_whatsapp, get_motivational_quote
+from whatsapp_utils import send_whatsapp
+import uuid
+
+# --- Identify User ---
+if "user_id" not in st.session_state:
+    st.session_state.user_id = str(uuid.uuid4())  # generate unique ID per session
+user_id = st.session_state.user_id
 
 # --- Sidebar ---
 with st.sidebar:
     st.header("⚙️ Settings")
-
     timezone_list = pytz.all_timezones
-    settings = load_settings()
-    selected_timezone = st.selectbox("🌍 Choose your timezone", timezone_list,
+    settings = load_settings(user_id)
+    selected_timezone = st.selectbox("🌍 Choose your timezone", timezone_list, 
                                      index=timezone_list.index(settings.get("timezone", "UTC")))
+    
+    user_whatsapp = st.text_input("📱 Your WhatsApp Number (with country code)", value=settings.get("whatsapp", ""))
 
-    if selected_timezone != settings.get("timezone"):
+    schedule_type = st.radio("📬 Reminder Type", ["Daily", "Weekly"])
+
+    if selected_timezone != settings.get("timezone") or user_whatsapp != settings.get("whatsapp") or schedule_type != settings.get("schedule", "Daily"):
         settings["timezone"] = selected_timezone
-        save_settings(settings)
-        st.success(f"Timezone updated to {selected_timezone}")
-
-    st.markdown("---")
-    st.subheader("🔔 Reminder Preferences")
-    reminder_type = st.radio("When would you like WhatsApp reminders?", ["Daily", "Weekly"])
-    reminder_time = st.time_input("⏰ Reminder Time", value=datetime.now().time())
-    settings["reminder_type"] = reminder_type
-    settings["reminder_time"] = reminder_time.strftime("%H:%M")
-    save_settings(settings)
+        settings["whatsapp"] = user_whatsapp
+        settings["schedule"] = schedule_type
+        save_settings(user_id, settings)
+        st.success("✅ Settings updated")
 
 # --- Main UI ---
-st.title("📆 AI Goal Tracker")
-goal = st.text_input("🎯 What's your goal?")
+st.title("🎯 Goal Tracker AI")
+goal = st.text_input("🎯 Enter your goal (e.g., Learn Data Science):")
 days = st.slider("📅 How many days to complete it?", 1, 30, 5)
 
 if st.button("🚀 Create My Plan"):
     if goal:
-        st.info("Planning your journey with AI...")
+        st.info("🧠 Generating your personalized learning plan...")
         tasks = plan_tasks(goal, days)
-        for t in tasks:
-            t["completed"] = False  # Add completed flag
-        save_goal_data({"goal": goal, "days": days, "tasks": tasks})
-        st.success("Your plan is ready!")
+        save_user_data(user_id, {
+            "goal": goal,
+            "days": days,
+            "tasks": tasks,
+            "created": str(datetime.utcnow())
+        })
+        st.success(f"Plan for: {goal} ({days} days)")
 
-# --- Load and Display Plan ---
-data = load_goal_data()
-if data:
-    st.header(f"📋 Your Goal: {data['goal']}")
+# --- Load Tasks ---
+data = load_all_users_data().get(user_id, {})
+tasks = data.get("tasks", [])
+settings = load_settings(user_id)
+timezone = settings.get("timezone", "UTC")
+
+# --- Task Checklist ---
+st.markdown("## ✅ Your Progress")
+completed = st.session_state.get("completed", set())
+progress = 0
+
+for task in tasks:
+    checked = st.checkbox(f"Day {task['day']}: {task['task']}", key=f"chk_{task['day']}")
+    if checked:
+        completed.add(task['day'])
+progress = len(completed) / len(tasks) if tasks else 0
+
+st.progress(progress)
+
+# --- Motivation ---
+if tasks:
+    st.markdown("## 💡 Daily Motivation")
+    st.info("Believe in yourself. You are capable of amazing things!")
+
+
+### scheduler.py
+import json
+import os
+import pytz
+from datetime import datetime
+from goal_data_loader import load_all_users_data
+from user_settings import load_all_settings
+from whatsapp_utils import send_whatsapp
+from motivation_quotes import get_motivation
+
+all_users = load_all_users_data()
+all_settings = load_all_settings()
+
+for user_id, data in all_users.items():
+    settings = all_settings.get(user_id, {})
     tz = pytz.timezone(settings.get("timezone", "UTC"))
-    today = datetime.now(tz).day
+    now = datetime.now(tz)
+    schedule_type = settings.get("schedule", "Daily")
+    
+    if schedule_type == "Weekly" and now.weekday() != 0:
+        continue  # only send on Mondays for weekly
 
-    completed_count = 0
-    for i, task in enumerate(data["tasks"]):
-        col1, col2 = st.columns([0.1, 0.9])
-        with col1:
-            checked = st.checkbox("", value=task.get("completed", False), key=f"task_{i}")
-        with col2:
-            st.markdown(f"**Day {task['day']}:** {task['task']}")
-        data["tasks"][i]["completed"] = checked
-        if checked:
-            completed_count += 1
+    today = now.day
+    tasks = data.get("tasks", [])
+    today_task = next((t for t in tasks if t["day"] == today), None)
+    if today_task:
+        message = f"📅 Day {today_task['day']}: {today_task['task']}\n💡 {get_motivation()}"
+    else:
+        message = f"✅ No task for today!\n💡 {get_motivation()}"
 
-    save_goal_data(data)
-
-    st.progress(completed_count / len(data["tasks"]))
-
-    # --- Motivation Section ---
-    st.markdown("---")
-    st.subheader("💡 Daily Motivation")
-    st.info(get_motivational_quote())
-
-    # --- WhatsApp Reminder ---
-    st.markdown("---")
-    if st.button("📤 Send WhatsApp Reminder Now"):
-        today_task = next((t for t in data["tasks"] if t["day"] == today), None)
-        msg = f"🎯 Goal: {data['goal']}\n"
-        if today_task:
-            msg += f"📅 Day {today_task['day']}: {today_task['task']}\n"
-        msg += f"💡 Motivation: {get_motivational_quote()}"
+    to = settings.get("whatsapp")
+    if to:
         try:
-            send_whatsapp(msg)
-            st.success("Reminder sent!")
+            send_whatsapp(message, to)
+            print(f"Sent to {to}")
         except Exception as e:
-            st.error(f"Failed to send reminder: {e}")
+            print(f"❌ Failed for {to}: {e}")
 
-
-### crew_planner.py
-import os
-import json
-from openai import OpenAI
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-def plan_tasks(goal, days):
-    prompt = f"""
-    Break down the goal \"{goal}\" into {days} daily learning tasks.
-    Format the output as JSON like this:
-    [
-      {{ "day": 1, "task": "..." }},
-      {{ "day": 2, "task": "..." }}
-    ]
-    """
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.6,
-    )
-    reply = response.choices[0].message.content
-    try:
-        return json.loads(reply)
-    except:
-        return [{"day": 1, "task": "Sorry, task breakdown failed!"}]
-
-
-### whatsapp_utils.py
-import os
-from twilio.rest import Client
-import random
-
-def send_whatsapp(message):
-    account_sid = os.getenv("TWILIO_SID")
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-    from_whatsapp = "whatsapp:+14155238886"
-    to_whatsapp = os.getenv("USER_WHATSAPP")
-
-    client = Client(account_sid, auth_token)
-    client.messages.create(
-        body=message,
-        from_=from_whatsapp,
-        to=to_whatsapp
-    )
-
-def get_motivational_quote():
-    quotes = [
-        "Success is the sum of small efforts repeated daily.",
-        "Every step forward brings you closer to your goal.",
-        "Consistency beats intensity.",
-        "You don't have to be great to start, but you have to start to be great.",
-        "Progress, not perfection!"
-    ]
-    return random.choice(quotes)
-
-
-### goal_data_loader.py
-import json
-
-def save_goal_data(data):
-    with open("goal_data.json", "w") as f:
-        json.dump(data, f, indent=2)
-
-def load_goal_data():
-    try:
-        with open("goal_data.json", "r") as f:
-            return json.load(f)
-    except:
-        return {}
-
-
-### user_settings.py
-import json
-
-SETTINGS_FILE = "user_settings.json"
-
-def load_settings():
-    try:
-        with open(SETTINGS_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return {"timezone": "UTC", "reminder_type": "Daily", "reminder_time": "08:00"}
-
-def save_settings(data):
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(data, f, indent=2)
 
 
 
